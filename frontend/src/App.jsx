@@ -1,0 +1,537 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import axios from 'axios';
+import { 
+  Image as ImageIcon, 
+  Sun, 
+  Crop, 
+  Wand2, 
+  Activity, 
+  Droplet, 
+  Layers, 
+  Minimize, 
+  BarChart2, 
+  Upload, 
+  Download,
+  Moon,
+  RotateCcw
+} from 'lucide-react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+
+const API_URL = 'http://localhost:8000';
+
+// Categories Configuration
+const CATEGORIES = [
+  { id: 'enhancement', label: 'Enhancement', icon: Sun },
+  { id: 'transformation', label: 'Transformation', icon: Crop },
+  { id: 'restoration', label: 'Restoration', icon: Droplet },
+  { id: 'edge', label: 'Edge & Binary', icon: Activity },
+  { id: 'color', label: 'Color Processing', icon: Layers },
+  { id: 'compression', label: 'Compression', icon: Minimize },
+  { id: 'histogram', label: 'Histogram Analysis', icon: BarChart2 },
+];
+
+function App() {
+  const [theme, setTheme] = useState('dark');
+  const [originalImage, setOriginalImage] = useState(null);
+  const [currentImage, setCurrentImage] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('enhancement');
+  const [dragActive, setDragActive] = useState(false);
+  
+  // States for operations
+  const [operation, setOperation] = useState('brightness_contrast');
+  const [params, setParams] = useState({ brightness: 0, contrast: 1.0 });
+  const [histogramData, setHistogramData] = useState(null);
+
+  const fileInputRef = useRef(null);
+
+  // Toggle Theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Debounced API call for parameters
+  const processImage = async (op, parameters) => {
+    if (!originalImage || !originalImage.file) return;
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', originalImage.file);
+      formData.append('operation', op);
+      formData.append('params', JSON.stringify(parameters));
+
+      const response = await axios.post(`${API_URL}/process`, formData, {
+        responseType: 'blob' // Expecting binary image data
+      });
+      
+      const url = URL.createObjectURL(response.data);
+      setCurrentImage({
+        file: response.data,
+        url: url
+      });
+      
+      if (activeCategory === 'histogram') {
+        fetchHistogram(response.data);
+      }
+    } catch (error) {
+      console.error("Processing failed", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Effect to run process when params change
+  useEffect(() => {
+    if (originalImage && activeCategory !== 'histogram') {
+      const timer = setTimeout(() => {
+        if (operation) processImage(operation, params);
+      }, 300); // 300ms debounce
+      return () => clearTimeout(timer);
+    }
+  }, [operation, params, activeCategory]);
+
+  const fetchHistogram = async (fileBlob) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', fileBlob);
+      const res = await axios.post(`${API_URL}/histogram`, formData);
+      setHistogramData(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleFileUpload = (file) => {
+    const url = URL.createObjectURL(file);
+    const newImg = { file, url };
+    setOriginalImage(newImg);
+    setCurrentImage(newImg);
+    setOperation('');
+    setParams({});
+    
+    if (activeCategory === 'histogram') {
+      fetchHistogram(file);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleApply = () => {
+    if (currentImage) {
+      setOriginalImage(currentImage);
+      setOperation('');
+    }
+  };
+
+  const handleReset = () => {
+    setCurrentImage(originalImage);
+    setOperation('');
+  };
+
+  const renderControls = () => {
+    if (!originalImage) return <div className="empty-state">Upload an image to start</div>;
+
+    switch (activeCategory) {
+      case 'enhancement':
+        return (
+          <>
+            <div className="control-group">
+              <label>Operation</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'brightness_contrast') setParams({ brightness: 0, contrast: 1.0 });
+                if (e.target.value === 'sharpen') setParams({ intensity: 1.0 });
+                if (e.target.value === 'blur') setParams({ ksize: 5 });
+                if (e.target.value === 'histogram_equalization') setParams({});
+              }}>
+                <option value="brightness_contrast">Brightness & Contrast</option>
+                <option value="histogram_equalization">Histogram Equalization</option>
+                <option value="sharpen">Sharpen</option>
+                <option value="blur">Blur</option>
+              </select>
+            </div>
+
+            {operation === 'brightness_contrast' && (
+              <>
+                <div className="control-group">
+                  <label>Brightness <span className="value-badge">{params.brightness || 0}</span></label>
+                  <input type="range" min="-100" max="100" value={params.brightness || 0} onChange={e => setParams({...params, brightness: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Contrast <span className="value-badge">{params.contrast || 1.0}</span></label>
+                  <input type="range" min="0.1" max="3.0" step="0.1" value={params.contrast || 1.0} onChange={e => setParams({...params, contrast: parseFloat(e.target.value)})} />
+                </div>
+              </>
+            )}
+            {operation === 'sharpen' && (
+               <div className="control-group">
+                 <label>Intensity <span className="value-badge">{params.intensity || 1.0}</span></label>
+                 <input type="range" min="0.1" max="5.0" step="0.1" value={params.intensity || 1.0} onChange={e => setParams({...params, intensity: parseFloat(e.target.value)})} />
+               </div>
+            )}
+            {operation === 'blur' && (
+               <div className="control-group">
+                 <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
+                 <input type="range" min="1" max="31" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+               </div>
+            )}
+          </>
+        );
+      case 'transformation':
+        return (
+          <>
+            <div className="control-group">
+              <label>Operation</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'rotate') setParams({ angle: 90 });
+                if (e.target.value === 'flip') setParams({ mode: 'horizontal' });
+              }}>
+                <option value="rotate">Rotate</option>
+                <option value="flip">Flip</option>
+              </select>
+            </div>
+            {operation === 'rotate' && (
+              <div className="control-group">
+                <label>Angle <span className="value-badge">{params.angle || 90}°</span></label>
+                <input type="range" min="-180" max="180" value={params.angle || 90} onChange={e => setParams({...params, angle: parseInt(e.target.value)})} />
+              </div>
+            )}
+            {operation === 'flip' && (
+              <div className="control-group">
+                <label>Mode</label>
+                <select value={params.mode || 'horizontal'} onChange={e => setParams({...params, mode: e.target.value})}>
+                  <option value="horizontal">Horizontal</option>
+                  <option value="vertical">Vertical</option>
+                </select>
+              </div>
+            )}
+          </>
+        );
+      case 'restoration':
+         return (
+          <>
+            <div className="control-group">
+              <label>Filter</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                setParams({ ksize: 5 });
+              }}>
+                <option value="gaussian_blur">Gaussian Blur</option>
+                <option value="median_filter">Median Filter (Noise Removal)</option>
+              </select>
+            </div>
+            <div className="control-group">
+              <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
+              <input type="range" min="1" max="31" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+            </div>
+          </>
+         );
+      case 'edge':
+        return (
+          <>
+             <div className="control-group">
+              <label>Detection Method</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'threshold') setParams({ thresh: 127 });
+                if (e.target.value === 'canny') setParams({ t1: 100, t2: 200 });
+                if (e.target.value === 'sobel' || e.target.value === 'laplacian') setParams({});
+                if (e.target.value === 'morphology') setParams({ type: 'erosion', ksize: 5, iterations: 1 });
+              }}>
+                <option value="threshold">Binary Threshold</option>
+                <option value="canny">Canny Edge</option>
+                <option value="sobel">Sobel</option>
+                <option value="laplacian">Laplacian</option>
+                <option value="morphology">Morphology</option>
+              </select>
+            </div>
+            {operation === 'threshold' && (
+              <div className="control-group">
+                <label>Threshold <span className="value-badge">{params.thresh || 127}</span></label>
+                <input type="range" min="0" max="255" value={params.thresh || 127} onChange={e => setParams({...params, thresh: parseInt(e.target.value)})} />
+              </div>
+            )}
+            {operation === 'canny' && (
+              <>
+                <div className="control-group">
+                  <label>Min Threshold <span className="value-badge">{params.t1 || 100}</span></label>
+                  <input type="range" min="0" max="255" value={params.t1 || 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Max Threshold <span className="value-badge">{params.t2 || 200}</span></label>
+                  <input type="range" min="0" max="255" value={params.t2 || 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
+                </div>
+              </>
+            )}
+            {operation === 'morphology' && (
+              <>
+                <div className="control-group">
+                  <label>Type</label>
+                  <select value={params.type || 'erosion'} onChange={e => setParams({...params, type: e.target.value})}>
+                    <option value="erosion">Erosion</option>
+                    <option value="dilation">Dilation</option>
+                  </select>
+                </div>
+                <div className="control-group">
+                  <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
+                  <input type="range" min="1" max="21" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Iterations <span className="value-badge">{params.iterations || 1}</span></label>
+                  <input type="range" min="1" max="10" value={params.iterations || 1} onChange={e => setParams({...params, iterations: parseInt(e.target.value)})} />
+                </div>
+              </>
+            )}
+          </>
+        );
+      case 'color':
+        return (
+          <>
+            <div className="control-group">
+              <label>Mode</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'grayscale') setParams({});
+                if (e.target.value === 'channel') setParams({ channel: 'r' });
+                if (e.target.value === 'hsv_adjust') setParams({ hue: 0, saturation: 1.0, value: 1.0 });
+              }}>
+                <option value="grayscale">Grayscale</option>
+                <option value="channel">Split Channel</option>
+                <option value="hsv_adjust">HSV Adjustment</option>
+              </select>
+            </div>
+            {operation === 'channel' && (
+              <div className="control-group">
+                <label>Channel</label>
+                <select value={params.channel || 'r'} onChange={e => setParams({...params, channel: e.target.value})}>
+                  <option value="r">Red</option>
+                  <option value="g">Green</option>
+                  <option value="b">Blue</option>
+                </select>
+              </div>
+            )}
+            {operation === 'hsv_adjust' && (
+              <>
+                <div className="control-group">
+                  <label>Hue Shift <span className="value-badge">{params.hue || 0}</span></label>
+                  <input type="range" min="-180" max="180" value={params.hue || 0} onChange={e => setParams({...params, hue: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Saturation <span className="value-badge">{params.saturation || 1.0}</span></label>
+                  <input type="range" min="0" max="3" step="0.1" value={params.saturation || 1.0} onChange={e => setParams({...params, saturation: parseFloat(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Value (Brightness) <span className="value-badge">{params.value || 1.0}</span></label>
+                  <input type="range" min="0" max="3" step="0.1" value={params.value || 1.0} onChange={e => setParams({...params, value: parseFloat(e.target.value)})} />
+                </div>
+              </>
+            )}
+          </>
+        );
+      case 'compression':
+        return (
+           <>
+            <div className="control-group">
+              <label>Simulate JPEG Compression</label>
+              <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Adjust quality to see compression artifacts.</p>
+            </div>
+            <div className="control-group">
+              <label>Quality <span className="value-badge">{params.quality || 50}%</span></label>
+              <input type="range" min="1" max="100" value={params.quality || 50} onChange={e => {
+                setOperation('compress');
+                setParams({...params, quality: parseInt(e.target.value)});
+              }} />
+            </div>
+          </>
+        );
+      case 'histogram':
+        return (
+          <div className="empty-state">
+            <BarChart2 size={32} />
+            <p>Histogram analysis loads automatically.</p>
+            <button className="btn btn-primary" onClick={() => {
+              if (currentImage) fetchHistogram(currentImage.file);
+            }}>Refresh Data</button>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getChartData = (label, dataArray, color) => ({
+    labels: Array.from({ length: 256 }, (_, i) => i),
+    datasets: [{
+      label: label,
+      data: dataArray || [],
+      backgroundColor: color,
+      borderColor: color,
+      borderWidth: 1,
+      pointRadius: 0
+    }]
+  });
+
+  return (
+    <div className="app-container" onDragEnter={handleDrag}>
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <Wand2 className="logo-icon" size={28} />
+          <h1>Mini PS</h1>
+        </div>
+        <div className="menu-items">
+          {CATEGORIES.map(cat => (
+            <div 
+              key={cat.id} 
+              className={`menu-item ${activeCategory === cat.id ? 'active' : ''}`}
+              onClick={() => {
+                setActiveCategory(cat.id);
+                setOperation('');
+                setParams({});
+              }}
+            >
+              <cat.icon size={20} />
+              <span>{cat.label}</span>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Topbar */}
+        <header className="topbar">
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>
+              <Upload size={16} /> Upload
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])} 
+              accept="image/*" 
+              style={{ display: 'none' }} 
+            />
+            {currentImage && (
+              <a href={currentImage.url} download={operation === 'compress' ? 'processed_image.jpg' : 'processed_image.png'} className="btn btn-secondary" style={{textDecoration: 'none'}}>
+                <Download size={16} /> Save
+              </a>
+            )}
+          </div>
+          
+          <button className="btn btn-secondary" style={{padding: '10px'}} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </header>
+
+        {/* Workspace */}
+        <div className="workspace">
+          <div className="image-area">
+            {activeCategory === 'histogram' && histogramData ? (
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
+                  <div className="chart-container">
+                    <Line 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Grayscale' }}}} 
+                      data={getChartData('Gray', histogramData.gray, 'gray')} 
+                    />
+                  </div>
+                  <div className="chart-container">
+                    <Line 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Red Channel' }}}} 
+                      data={getChartData('Red', histogramData.r, 'red')} 
+                    />
+                  </div>
+                  <div className="chart-container">
+                    <Line 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Green Channel' }}}} 
+                      data={getChartData('Green', histogramData.g, 'green')} 
+                    />
+                  </div>
+                  <div className="chart-container">
+                    <Line 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Blue Channel' }}}} 
+                      data={getChartData('Blue', histogramData.b, 'blue')} 
+                    />
+                  </div>
+               </div>
+            ) : (
+              <div className="image-panels">
+                <div className="image-panel">
+                  <div className="panel-header">Original</div>
+                  <div className="image-container">
+                    {originalImage ? <img src={originalImage.url} alt="Original" /> : <div className="empty-state"><ImageIcon size={48} />No Image</div>}
+                  </div>
+                </div>
+                <div className="image-panel">
+                  <div className="panel-header">Processed</div>
+                  <div className="image-container">
+                    {currentImage ? <img src={currentImage.url} alt="Processed" /> : <div className="empty-state"><ImageIcon size={48} />No Image</div>}
+                    {isProcessing && (
+                      <div className="processing-overlay">
+                        <div className="spinner"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <aside className="controls-area">
+            <div className="controls-header">
+              {CATEGORIES.find(c => c.id === activeCategory)?.label || 'Controls'}
+            </div>
+            <div className="controls-body">
+              {renderControls()}
+              
+              {originalImage && activeCategory !== 'histogram' && (
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="action-row">
+                    <button className="btn btn-secondary" onClick={handleReset}>
+                      <RotateCcw size={16} /> Reset
+                    </button>
+                    <button className="btn btn-primary" onClick={handleApply}>
+                       Apply
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+
+        {/* Drag Overlay */}
+        {dragActive && (
+          <div className="upload-overlay drag-active" onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
+            <Upload size={64} />
+            <h2 style={{marginTop: '20px'}}>Drop image here to upload</h2>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
