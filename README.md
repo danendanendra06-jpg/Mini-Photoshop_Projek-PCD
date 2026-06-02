@@ -1,6 +1,6 @@
 # Mini Photoshop
 
-**Mini Photoshop** adalah aplikasi pengolahan citra digital berbasis Web yang dirancang sebagai implementasi dari konsep-konsep utama mata kuliah Pengolahan Citra Digital (Dosen Pengampu: Rizki Elisa Nalawati, S.T., M.T.).
+**Mini Photoshop** adalah aplikasi pengolahan citra digital berbasis Web yang dirancang sebagai implementasi dari konsep-konsep utama mata kuliah Pengolahan Citra Digital.
 
 Aplikasi ini menggunakan perpaduan **Frontend React/Vite** untuk antarmuka pengguna yang modern dan interaktif, serta **Backend Python/FastAPI** yang ditenagai oleh pustaka OpenCV dan TensorFlow untuk memproses gambar dan algoritma Machine Learning.
 

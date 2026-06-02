@@ -1,6 +1,5 @@
 # Product Requirements Document (PRD)
 **Project Name:** Mini Photoshop
-**Dosen Pengampu:** Rizki Elisa Nalawati, S.T., M.T.
 **Mata Kuliah:** Pengolahan Citra Digital
 
 ## 1. Deskripsi Sistem
