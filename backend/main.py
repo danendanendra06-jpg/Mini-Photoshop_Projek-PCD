@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 import json
 from processing import apply_processing_memory, get_histogram_data_memory
+from ml_model import predict_image
 
 app = FastAPI(title="Mini Photoshop API")
 
@@ -35,4 +36,12 @@ async def process_image(file: UploadFile = File(...), operation: str = Form(...)
 async def get_histogram(file: UploadFile = File(...)):
     image_bytes = await file.read()
     data = get_histogram_data_memory(image_bytes)
+    return data
+
+@app.post("/recognize")
+async def recognize_objects(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    data = predict_image(image_bytes)
+    if "error" in data:
+        raise HTTPException(status_code=500, detail=data["error"])
     return data

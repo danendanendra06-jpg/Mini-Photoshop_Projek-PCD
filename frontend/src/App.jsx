@@ -13,7 +13,8 @@ import {
   Upload, 
   Download,
   Moon,
-  RotateCcw
+  RotateCcw,
+  Scan
 } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
@@ -31,6 +32,7 @@ const CATEGORIES = [
   { id: 'color', label: 'Color Processing', icon: Layers },
   { id: 'compression', label: 'Compression', icon: Minimize },
   { id: 'histogram', label: 'Histogram Analysis', icon: BarChart2 },
+  { id: 'ml', label: 'Object Recognition', icon: Scan },
 ];
 
 function App() {
@@ -45,6 +47,7 @@ function App() {
   const [operation, setOperation] = useState('brightness_contrast');
   const [params, setParams] = useState({ brightness: 0, contrast: 1.0 });
   const [histogramData, setHistogramData] = useState(null);
+  const [mlResult, setMlResult] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -104,6 +107,21 @@ function App() {
     }
   };
 
+  const recognizeImage = async (fileBlob) => {
+    setIsProcessing(true);
+    setMlResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', fileBlob);
+      const res = await axios.post(`${API_URL}/recognize`, formData);
+      setMlResult(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleFileUpload = (file) => {
     const url = URL.createObjectURL(file);
     const newImg = { file, url };
@@ -114,6 +132,8 @@ function App() {
     
     if (activeCategory === 'histogram') {
       fetchHistogram(file);
+    } else if (activeCategory === 'ml') {
+      recognizeImage(file);
     }
   };
 
@@ -376,6 +396,76 @@ function App() {
             }}>Refresh Data</button>
           </div>
         );
+      case 'ml':
+        return (
+          <div className="ml-controls" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {mlResult ? (
+              <>
+                 <div style={{ marginBottom: '5px' }}>
+                   <p style={{ color: 'var(--text-muted)', marginBottom: '4px', fontSize: '0.9rem' }}>Total Unique Colors:</p>
+                   <h3 style={{ fontSize: '1.2rem', margin: 0 }}>{mlResult.unique_colors}</h3>
+                 </div>
+                 
+                 <h4 style={{ margin: '5px 0', fontSize: '1rem' }}>Category Match</h4>
+                 
+                 <div style={{ marginBottom: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
+                       <span>Manusia</span>
+                       <span>{mlResult.categories['Manusia'].toFixed(1)}%</span>
+                    </div>
+                    <div style={{ background: 'var(--bg-primary)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+                       <div style={{ width: `${Math.min(mlResult.categories['Manusia'], 100)}%`, background: '#60a5fa', height: '100%', transition: 'width 0.5s ease' }}></div>
+                    </div>
+                 </div>
+                 
+                 <div style={{ marginBottom: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
+                       <span>Hewan</span>
+                       <span>{mlResult.categories['Hewan'].toFixed(1)}%</span>
+                    </div>
+                    <div style={{ background: 'var(--bg-primary)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+                       <div style={{ width: `${Math.min(mlResult.categories['Hewan'], 100)}%`, background: '#34d399', height: '100%', transition: 'width 0.5s ease' }}></div>
+                    </div>
+                 </div>
+
+                 <div style={{ marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
+                       <span>Lainnya</span>
+                       <span>{mlResult.categories['Objek Lainnya'].toFixed(1)}%</span>
+                    </div>
+                    <div style={{ background: 'var(--bg-primary)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+                       <div style={{ width: `${Math.min(mlResult.categories['Objek Lainnya'], 100)}%`, background: '#f59e0b', height: '100%', transition: 'width 0.5s ease' }}></div>
+                    </div>
+                 </div>
+                 
+                 <div style={{ padding: '10px', background: 'var(--bg-primary)', borderRadius: '6px' }}>
+                    <h5 style={{ marginBottom: '8px', fontSize: '0.9rem' }}>Top predictions:</h5>
+                    <ul style={{ paddingLeft: '15px', margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                       {mlResult.raw_predictions.map((pred, i) => (
+                         <li key={i} style={{ marginBottom: '3px' }}>{pred}</li>
+                       ))}
+                    </ul>
+                 </div>
+                 
+                 <button className="btn btn-secondary" style={{ marginTop: '5px' }} onClick={() => {
+                   if (currentImage) recognizeImage(currentImage.file);
+                 }}>
+                   Rescan Image
+                 </button>
+              </>
+            ) : (
+              <div className="empty-state">
+                <Scan size={32} />
+                <p style={{ marginTop: '10px' }}>{isProcessing ? 'Scanning image...' : 'Click scan to analyze the image.'}</p>
+                {!isProcessing && (
+                  <button className="btn btn-primary" style={{ marginTop: '15px' }} onClick={() => {
+                    if (currentImage) recognizeImage(currentImage.file);
+                  }}>Scan Now</button>
+                )}
+              </div>
+            )}
+          </div>
+        );
       default:
         return null;
     }
@@ -410,6 +500,9 @@ function App() {
                 setActiveCategory(cat.id);
                 setOperation('');
                 setParams({});
+                if (cat.id === 'ml' && originalImage && !mlResult) {
+                    recognizeImage(originalImage.file);
+                }
               }}
             >
               <cat.icon size={20} />
