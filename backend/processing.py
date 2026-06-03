@@ -60,7 +60,17 @@ def apply_processing_memory(image_bytes, operation, params):
         elif operation == "resize":
             width = int(params.get("width", img.shape[1]))
             height = int(params.get("height", img.shape[0]))
+            # Prevent 0 size which causes cv2 error
+            width = max(1, width)
+            height = max(1, height)
             result = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+
+        elif operation == "translate":
+            tx = float(params.get("tx", 0))
+            ty = float(params.get("ty", 0))
+            M = np.float32([[1, 0, tx], [0, 1, ty]])
+            (h, w) = img.shape[:2]
+            result = cv2.warpAffine(img, M, (w, h))
 
         # 3. Restoration
         elif operation == "gaussian_blur":
@@ -99,6 +109,34 @@ def apply_processing_memory(image_bytes, operation, params):
         elif operation == "laplacian":
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+            abs_dst = cv2.convertScaleAbs(laplacian)
+            result = cv2.cvtColor(abs_dst, cv2.COLOR_GRAY2BGR)
+
+        elif operation == "prewitt":
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            kernelx = np.array([[1,1,1],[0,0,0],[-1,-1,-1]])
+            kernely = np.array([[-1,0,1],[-1,0,1],[-1,0,1]])
+            img_prewittx = cv2.filter2D(gray, -1, kernelx)
+            img_prewitty = cv2.filter2D(gray, -1, kernely)
+            result = cv2.cvtColor(cv2.convertScaleAbs(img_prewittx) + cv2.convertScaleAbs(img_prewitty), cv2.COLOR_GRAY2BGR)
+
+        elif operation == "robert":
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            kernelx = np.array([[1, 0], [0, -1]], dtype=int)
+            kernely = np.array([[0, 1], [-1, 0]], dtype=int)
+            x = cv2.filter2D(gray, cv2.CV_16S, kernelx)
+            y = cv2.filter2D(gray, cv2.CV_16S, kernely)
+            absX = cv2.convertScaleAbs(x)
+            absY = cv2.convertScaleAbs(y)
+            robert = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+            result = cv2.cvtColor(robert, cv2.COLOR_GRAY2BGR)
+
+        elif operation == "log":
+            ksize = int(params.get("ksize", 5))
+            if ksize % 2 == 0: ksize += 1
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (ksize, ksize), 0)
+            laplacian = cv2.Laplacian(blur, cv2.CV_64F)
             abs_dst = cv2.convertScaleAbs(laplacian)
             result = cv2.cvtColor(abs_dst, cv2.COLOR_GRAY2BGR)
 
@@ -151,6 +189,41 @@ def apply_processing_memory(image_bytes, operation, params):
             if success:
                 return True, encoded_img.tobytes()
             return False, "Failed to compress image"
+            
+        elif operation == "quantization":
+            k = int(params.get("k", 16))
+            pixel_vals = img.reshape((-1, 3))
+            pixel_vals = np.float32(pixel_vals)
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+            _, labels, centers = cv2.kmeans(pixel_vals, k, None, criteria, 3, cv2.KMEANS_RANDOM_CENTERS)
+            centers = np.uint8(centers)
+            res = centers[labels.flatten()]
+            result = res.reshape((img.shape))
+
+        # 7. Segmentation
+        elif operation == "seg_threshold":
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            result = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        elif operation == "seg_edge":
+            t1 = int(params.get("t1", 100))
+            t2 = int(params.get("t2", 200))
+            edges = cv2.Canny(img, t1, t2)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            result = img.copy()
+            cv2.drawContours(result, contours, -1, (0, 255, 0), 2)
+
+        elif operation == "seg_region":
+            # K-Means clustering for segmentation
+            k = int(params.get("k", 3))
+            pixel_vals = img.reshape((-1, 3))
+            pixel_vals = np.float32(pixel_vals)
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.85)
+            _, labels, centers = cv2.kmeans(pixel_vals, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+            centers = np.uint8(centers)
+            segmented_data = centers[labels.flatten()]
+            result = segmented_data.reshape((img.shape))
 
         else:
             return False, "Unknown operation"

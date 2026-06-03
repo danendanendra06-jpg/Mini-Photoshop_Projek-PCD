@@ -14,7 +14,8 @@ import {
   Download,
   Moon,
   RotateCcw,
-  Scan
+  Scan,
+  Save
 } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
@@ -29,6 +30,7 @@ const CATEGORIES = [
   { id: 'transformation', label: 'Transformation', icon: Crop },
   { id: 'restoration', label: 'Restoration', icon: Droplet },
   { id: 'edge', label: 'Edge & Binary', icon: Activity },
+  { id: 'segmentation', label: 'Image Segmentation', icon: Layers },
   { id: 'color', label: 'Color Processing', icon: Layers },
   { id: 'compression', label: 'Compression', icon: Minimize },
   { id: 'histogram', label: 'Histogram Analysis', icon: BarChart2 },
@@ -47,6 +49,7 @@ function App() {
   const [operation, setOperation] = useState('brightness_contrast');
   const [params, setParams] = useState({ brightness: 0, contrast: 1.0 });
   const [histogramData, setHistogramData] = useState(null);
+  const [originalHistogramData, setOriginalHistogramData] = useState(null);
   const [mlResult, setMlResult] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -77,7 +80,7 @@ function App() {
       });
       
       if (activeCategory === 'histogram') {
-        fetchHistogram(response.data);
+        fetchHistogram(originalImage.file, response.data);
       }
     } catch (error) {
       console.error("Processing failed", error);
@@ -96,12 +99,20 @@ function App() {
     }
   }, [operation, params, activeCategory]);
 
-  const fetchHistogram = async (fileBlob) => {
+  const fetchHistogram = async (origBlob, currBlob) => {
     try {
-      const formData = new FormData();
-      formData.append('file', fileBlob);
-      const res = await axios.post(`${API_URL}/histogram`, formData);
-      setHistogramData(res.data);
+      if (origBlob) {
+        const origData = new FormData();
+        origData.append('file', origBlob);
+        const resOrig = await axios.post(`${API_URL}/histogram`, origData);
+        setOriginalHistogramData(resOrig.data);
+      }
+      if (currBlob) {
+        const currData = new FormData();
+        currData.append('file', currBlob);
+        const resCurr = await axios.post(`${API_URL}/histogram`, currData);
+        setHistogramData(resCurr.data);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -131,7 +142,7 @@ function App() {
     setParams({});
     
     if (activeCategory === 'histogram') {
-      fetchHistogram(file);
+      fetchHistogram(file, file);
     } else if (activeCategory === 'ml') {
       recognizeImage(file);
     }
@@ -227,9 +238,15 @@ function App() {
                 setOperation(e.target.value);
                 if (e.target.value === 'rotate') setParams({ angle: 90 });
                 if (e.target.value === 'flip') setParams({ mode: 'horizontal' });
+                if (e.target.value === 'crop') setParams({ x: 0, y: 0, w: 100, h: 100 });
+                if (e.target.value === 'resize') setParams({ width: 256, height: 256 });
+                if (e.target.value === 'translate') setParams({ tx: 50, ty: 50 });
               }}>
                 <option value="rotate">Rotate</option>
                 <option value="flip">Flip</option>
+                <option value="crop">Crop</option>
+                <option value="resize">Resize</option>
+                <option value="translate">Translate</option>
               </select>
             </div>
             {operation === 'rotate' && (
@@ -246,6 +263,36 @@ function App() {
                   <option value="vertical">Vertical</option>
                 </select>
               </div>
+            )}
+            {operation === 'crop' && (
+              <>
+                <div className="control-group" style={{display:'flex', gap:'10px'}}>
+                  <div style={{flex:1}}><label>X</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.x || 0} onChange={e => setParams({...params, x: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Y</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.y || 0} onChange={e => setParams({...params, y: parseInt(e.target.value)})} /></div>
+                </div>
+                <div className="control-group" style={{display:'flex', gap:'10px'}}>
+                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.w || 100} onChange={e => setParams({...params, w: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.h || 100} onChange={e => setParams({...params, h: parseInt(e.target.value)})} /></div>
+                </div>
+              </>
+            )}
+            {operation === 'resize' && (
+              <div className="control-group" style={{display:'flex', gap:'10px'}}>
+                <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.width || 256} onChange={e => setParams({...params, width: parseInt(e.target.value)})} /></div>
+                <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.height || 256} onChange={e => setParams({...params, height: parseInt(e.target.value)})} /></div>
+              </div>
+            )}
+            {operation === 'translate' && (
+              <>
+                <div className="control-group">
+                  <label>Translate X <span className="value-badge">{params.tx || 0}</span></label>
+                  <input type="range" min="-500" max="500" value={params.tx || 0} onChange={e => setParams({...params, tx: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Translate Y <span className="value-badge">{params.ty || 0}</span></label>
+                  <input type="range" min="-500" max="500" value={params.ty || 0} onChange={e => setParams({...params, ty: parseInt(e.target.value)})} />
+                </div>
+              </>
             )}
           </>
         );
@@ -277,13 +324,17 @@ function App() {
                 setOperation(e.target.value);
                 if (e.target.value === 'threshold') setParams({ thresh: 127 });
                 if (e.target.value === 'canny') setParams({ t1: 100, t2: 200 });
-                if (e.target.value === 'sobel' || e.target.value === 'laplacian') setParams({});
+                if (e.target.value === 'sobel' || e.target.value === 'laplacian' || e.target.value === 'prewitt' || e.target.value === 'robert') setParams({});
+                if (e.target.value === 'log') setParams({ ksize: 5 });
                 if (e.target.value === 'morphology') setParams({ type: 'erosion', ksize: 5, iterations: 1 });
               }}>
                 <option value="threshold">Binary Threshold</option>
                 <option value="canny">Canny Edge</option>
                 <option value="sobel">Sobel</option>
                 <option value="laplacian">Laplacian</option>
+                <option value="prewitt">Prewitt</option>
+                <option value="robert">Robert Cross</option>
+                <option value="log">Laplacian of Gaussian (LoG)</option>
                 <option value="morphology">Morphology</option>
               </select>
             </div>
@@ -305,6 +356,12 @@ function App() {
                 </div>
               </>
             )}
+            {operation === 'log' && (
+               <div className="control-group">
+                 <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
+                 <input type="range" min="1" max="15" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+               </div>
+            )}
             {operation === 'morphology' && (
               <>
                 <div className="control-group">
@@ -323,6 +380,42 @@ function App() {
                   <input type="range" min="1" max="10" value={params.iterations || 1} onChange={e => setParams({...params, iterations: parseInt(e.target.value)})} />
                 </div>
               </>
+            )}
+          </>
+        );
+      case 'segmentation':
+        return (
+          <>
+            <div className="control-group">
+              <label>Method</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'seg_threshold') setParams({});
+                if (e.target.value === 'seg_edge') setParams({ t1: 100, t2: 200 });
+                if (e.target.value === 'seg_region') setParams({ k: 3 });
+              }}>
+                <option value="seg_threshold">Threshold-based (Otsu)</option>
+                <option value="seg_edge">Edge-based (Canny Contours)</option>
+                <option value="seg_region">Region-based (K-Means)</option>
+              </select>
+            </div>
+            {operation === 'seg_edge' && (
+              <>
+                <div className="control-group">
+                  <label>Min Threshold <span className="value-badge">{params.t1 || 100}</span></label>
+                  <input type="range" min="0" max="255" value={params.t1 || 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
+                </div>
+                <div className="control-group">
+                  <label>Max Threshold <span className="value-badge">{params.t2 || 200}</span></label>
+                  <input type="range" min="0" max="255" value={params.t2 || 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
+                </div>
+              </>
+            )}
+            {operation === 'seg_region' && (
+              <div className="control-group">
+                <label>Regions (K) <span className="value-badge">{params.k || 3}</span></label>
+                <input type="range" min="2" max="10" value={params.k || 3} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
+              </div>
             )}
           </>
         );
@@ -374,16 +467,30 @@ function App() {
         return (
            <>
             <div className="control-group">
-              <label>Simulate JPEG Compression</label>
-              <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Adjust quality to see compression artifacts.</p>
+              <label>Compression Method</label>
+              <select value={operation} onChange={e => {
+                setOperation(e.target.value);
+                if (e.target.value === 'compress') setParams({ quality: 50 });
+                if (e.target.value === 'quantization') setParams({ k: 16 });
+              }}>
+                <option value="compress">JPEG Quality Simulator</option>
+                <option value="quantization">Color Quantization (K-Means)</option>
+              </select>
             </div>
-            <div className="control-group">
-              <label>Quality <span className="value-badge">{params.quality || 50}%</span></label>
-              <input type="range" min="1" max="100" value={params.quality || 50} onChange={e => {
-                setOperation('compress');
-                setParams({...params, quality: parseInt(e.target.value)});
-              }} />
-            </div>
+            
+            {operation === 'compress' && (
+              <div className="control-group">
+                <label>Quality <span className="value-badge">{params.quality || 50}%</span></label>
+                <input type="range" min="1" max="100" value={params.quality || 50} onChange={e => setParams({...params, quality: parseInt(e.target.value)})} />
+              </div>
+            )}
+            {operation === 'quantization' && (
+              <div className="control-group">
+                <label>Number of Colors (K) <span className="value-badge">{params.k || 16}</span></label>
+                <input type="range" min="2" max="64" value={params.k || 16} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
+                <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px'}}>Quantizes the image to K colors, effectively compressing the visual data.</p>
+              </div>
+            )}
           </>
         );
       case 'histogram':
@@ -392,7 +499,7 @@ function App() {
             <BarChart2 size={32} />
             <p>Histogram analysis loads automatically.</p>
             <button className="btn btn-primary" onClick={() => {
-              if (currentImage) fetchHistogram(currentImage.file);
+              if (currentImage && originalImage) fetchHistogram(originalImage.file, currentImage.file);
             }}>Refresh Data</button>
           </div>
         );
@@ -471,17 +578,35 @@ function App() {
     }
   };
 
-  const getChartData = (label, dataArray, color) => ({
-    labels: Array.from({ length: 256 }, (_, i) => i),
-    datasets: [{
-      label: label,
-      data: dataArray || [],
-      backgroundColor: color,
-      borderColor: color,
-      borderWidth: 1,
-      pointRadius: 0
-    }]
-  });
+  const getChartData = (label, dataArrayOriginal, dataArrayProcessed, color) => {
+    const datasets = [];
+    if (dataArrayOriginal) {
+      datasets.push({
+        label: `${label} (Original)`,
+        data: dataArrayOriginal,
+        backgroundColor: 'rgba(200, 200, 200, 0.5)',
+        borderColor: 'rgba(200, 200, 200, 0.8)',
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: true
+      });
+    }
+    if (dataArrayProcessed) {
+      datasets.push({
+        label: `${label} (Processed)`,
+        data: dataArrayProcessed,
+        backgroundColor: color,
+        borderColor: color,
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: true
+      });
+    }
+    return {
+      labels: Array.from({ length: 256 }, (_, i) => i),
+      datasets: datasets
+    };
+  };
 
   return (
     <div className="app-container" onDragEnter={handleDrag}>
@@ -528,9 +653,14 @@ function App() {
               style={{ display: 'none' }} 
             />
             {currentImage && (
-              <a href={currentImage.url} download={operation === 'compress' ? 'processed_image.jpg' : 'processed_image.png'} className="btn btn-secondary" style={{textDecoration: 'none'}}>
-                <Download size={16} /> Save
-              </a>
+              <>
+                <button className="btn btn-secondary" onClick={handleApply}>
+                  <Save size={16} /> Save
+                </button>
+                <a href={currentImage.url} download={operation === 'compress' ? 'processed_image.jpg' : 'processed_image.png'} className="btn btn-primary" style={{textDecoration: 'none'}}>
+                  <Download size={16} /> Export
+                </a>
+              </>
             )}
           </div>
           
@@ -543,29 +673,32 @@ function App() {
         <div className="workspace">
           <div className="image-area">
             {activeCategory === 'histogram' && histogramData ? (
-               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
-                  <div className="chart-container">
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto', padding: '20px' }}>
+                  <h3 style={{marginBottom: '0'}}>Histogram Comparison</h3>
+                  <p style={{fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0'}}>Comparing original vs processed image.</p>
+                  
+                  <div className="chart-container" style={{ minHeight: '200px' }}>
                     <Line 
-                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Grayscale' }}}} 
-                      data={getChartData('Gray', histogramData.gray, 'gray')} 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true }, title: { display: true, text: 'Grayscale' }}}} 
+                      data={getChartData('Gray', originalHistogramData?.gray, histogramData.gray, 'gray')} 
                     />
                   </div>
-                  <div className="chart-container">
+                  <div className="chart-container" style={{ minHeight: '200px' }}>
                     <Line 
-                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Red Channel' }}}} 
-                      data={getChartData('Red', histogramData.r, 'red')} 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true }, title: { display: true, text: 'Red Channel' }}}} 
+                      data={getChartData('Red', originalHistogramData?.r, histogramData.r, 'red')} 
                     />
                   </div>
-                  <div className="chart-container">
+                  <div className="chart-container" style={{ minHeight: '200px' }}>
                     <Line 
-                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Green Channel' }}}} 
-                      data={getChartData('Green', histogramData.g, 'green')} 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true }, title: { display: true, text: 'Green Channel' }}}} 
+                      data={getChartData('Green', originalHistogramData?.g, histogramData.g, 'green')} 
                     />
                   </div>
-                  <div className="chart-container">
+                  <div className="chart-container" style={{ minHeight: '200px' }}>
                     <Line 
-                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Blue Channel' }}}} 
-                      data={getChartData('Blue', histogramData.b, 'blue')} 
+                      options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true }, title: { display: true, text: 'Blue Channel' }}}} 
+                      data={getChartData('Blue', originalHistogramData?.b, histogramData.b, 'blue')} 
                     />
                   </div>
                </div>

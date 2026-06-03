@@ -8,9 +8,8 @@ def run_backend():
     # Change to backend dir
     backend_cmd = "uvicorn main:app --reload --port 8000"
     if sys.platform == 'win32':
-        # if venv exists in backend
-        if os.path.exists("backend/venv"):
-            backend_cmd = ".\\venv\\Scripts\\activate && uvicorn main:app --reload --port 8000"
+        # Menggunakan virtual environment tf-env (Python versi downgrade)
+        backend_cmd = r"call C:\Users\danen\tf-env\Scripts\activate.bat && uvicorn main:app --reload --port 8000"
     
     process = subprocess.Popen(backend_cmd, cwd="backend", shell=True)
     process.wait()
