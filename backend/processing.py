@@ -60,10 +60,17 @@ def apply_processing_memory(image_bytes, operation, params):
         elif operation == "resize":
             width = int(params.get("width", img.shape[1]))
             height = int(params.get("height", img.shape[0]))
-            # Prevent 0 size which causes cv2 error
+            interp_str = params.get("interpolation", "bilinear")
+            
+            interp_flag = cv2.INTER_LINEAR
+            if interp_str == "nearest":
+                interp_flag = cv2.INTER_NEAREST
+            elif interp_str == "bilinear":
+                interp_flag = cv2.INTER_LINEAR
+
             width = max(1, width)
             height = max(1, height)
-            result = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+            result = cv2.resize(img, (width, height), interpolation=interp_flag)
 
         elif operation == "translate":
             tx = float(params.get("tx", 0))

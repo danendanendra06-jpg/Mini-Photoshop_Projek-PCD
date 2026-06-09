@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
@@ -44,13 +46,24 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('enhancement');
   const [dragActive, setDragActive] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilename, setExportFilename] = useState('processed_image');
+  const [exportFormat, setExportFormat] = useState('png');
+  const [crop, setCrop] = useState();
+  const [completedCrop, setCompletedCrop] = useState(null);
+  const imgRef = useRef(null);
   
   // States for operations
-  const [operation, setOperation] = useState('brightness_contrast');
-  const [params, setParams] = useState({ brightness: 0, contrast: 1.0 });
+  const [operation, setOperation] = useState('');
+  const [params, setParams] = useState({});
   const [histogramData, setHistogramData] = useState(null);
   const [originalHistogramData, setOriginalHistogramData] = useState(null);
   const [mlResult, setMlResult] = useState(null);
+  
+  // Interactive Rotate States
+  const [uiAngle, setUiAngle] = useState(0);
+  const [isRotating, setIsRotating] = useState(false);
+  const rotateStart = useRef({ angle: 0, initialUiAngle: 0 });
 
   const fileInputRef = useRef(null);
 
@@ -98,6 +111,27 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [operation, params, activeCategory]);
+
+  useEffect(() => {
+    if (completedCrop && imgRef.current && operation === 'crop' && activeCategory === 'transformation') {
+       const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+       const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+       
+       const px = {
+         x: Math.round(completedCrop.x * scaleX),
+         y: Math.round(completedCrop.y * scaleY),
+         w: Math.round(completedCrop.width * scaleX),
+         h: Math.round(completedCrop.height * scaleY)
+       };
+       
+       if (px.w > 0 && px.h > 0) {
+         setParams(prev => {
+           if (prev.x === px.x && prev.y === px.y && prev.w === px.w && prev.h === px.h) return prev;
+           return { ...prev, ...px };
+         });
+       }
+    }
+  }, [completedCrop, operation, activeCategory]);
 
   const fetchHistogram = async (origBlob, currBlob) => {
     try {
@@ -168,6 +202,40 @@ function App() {
     }
   };
 
+  const handleRotateStart = (e) => {
+    if (operation !== 'rotate' || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
+    rotateStart.current = { angle, initialUiAngle: uiAngle };
+    setIsRotating(true);
+  };
+
+  const handleRotateMove = (e) => {
+    if (!isRotating || !imgRef.current) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
+    let diff = angle - rotateStart.current.angle;
+    let newAngle = Math.round(rotateStart.current.initialUiAngle + diff);
+    setUiAngle(newAngle);
+  };
+
+  const handleRotateEnd = () => {
+    if (isRotating) {
+      setIsRotating(false);
+      setParams({...params, angle: uiAngle});
+    }
+  };
+
   const handleApply = () => {
     if (currentImage) {
       setOriginalImage(currentImage);
@@ -196,6 +264,7 @@ function App() {
                 if (e.target.value === 'blur') setParams({ ksize: 5 });
                 if (e.target.value === 'histogram_equalization') setParams({});
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="brightness_contrast">Brightness & Contrast</option>
                 <option value="histogram_equalization">Histogram Equalization</option>
                 <option value="sharpen">Sharpen</option>
@@ -236,12 +305,13 @@ function App() {
               <label>Operation</label>
               <select value={operation} onChange={e => {
                 setOperation(e.target.value);
-                if (e.target.value === 'rotate') setParams({ angle: 90 });
+                if (e.target.value === 'rotate') { setParams({ angle: 0 }); setUiAngle(0); }
                 if (e.target.value === 'flip') setParams({ mode: 'horizontal' });
                 if (e.target.value === 'crop') setParams({ x: 0, y: 0, w: 100, h: 100 });
-                if (e.target.value === 'resize') setParams({ width: 256, height: 256 });
+                if (e.target.value === 'resize') setParams({ width: 256, height: 256, interpolation: 'bilinear' });
                 if (e.target.value === 'translate') setParams({ tx: 50, ty: 50 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="rotate">Rotate</option>
                 <option value="flip">Flip</option>
                 <option value="crop">Crop</option>
@@ -250,10 +320,21 @@ function App() {
               </select>
             </div>
             {operation === 'rotate' && (
-              <div className="control-group">
-                <label>Angle <span className="value-badge">{params.angle || 90}°</span></label>
-                <input type="range" min="-180" max="180" value={params.angle || 90} onChange={e => setParams({...params, angle: parseInt(e.target.value)})} />
-              </div>
+              <>
+                <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Drag the Original image to rotate, use slider, or click buttons.</p>
+                <div className="control-group" style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { const a = uiAngle - 90; setUiAngle(a); setParams({...params, angle: a}); }}>↺ -90°</button>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { const a = uiAngle + 90; setUiAngle(a); setParams({...params, angle: a}); }}>↻ +90°</button>
+                </div>
+                <div className="control-group">
+                  <label>Angle <span className="value-badge">{uiAngle}°</span></label>
+                  <input type="range" min="-180" max="180" value={uiAngle} 
+                    onChange={e => setUiAngle(parseInt(e.target.value))} 
+                    onMouseUp={() => setParams({...params, angle: uiAngle})}
+                    onTouchEnd={() => setParams({...params, angle: uiAngle})}
+                  />
+                </div>
+              </>
             )}
             {operation === 'flip' && (
               <div className="control-group">
@@ -266,6 +347,7 @@ function App() {
             )}
             {operation === 'crop' && (
               <>
+                <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Drag on the Original image to crop, or fine-tune values below.</p>
                 <div className="control-group" style={{display:'flex', gap:'10px'}}>
                   <div style={{flex:1}}><label>X</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.x || 0} onChange={e => setParams({...params, x: parseInt(e.target.value)})} /></div>
                   <div style={{flex:1}}><label>Y</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.y || 0} onChange={e => setParams({...params, y: parseInt(e.target.value)})} /></div>
@@ -277,10 +359,19 @@ function App() {
               </>
             )}
             {operation === 'resize' && (
-              <div className="control-group" style={{display:'flex', gap:'10px'}}>
-                <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.width || 256} onChange={e => setParams({...params, width: parseInt(e.target.value)})} /></div>
-                <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.height || 256} onChange={e => setParams({...params, height: parseInt(e.target.value)})} /></div>
-              </div>
+              <>
+                <div className="control-group" style={{display:'flex', gap:'10px'}}>
+                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.width || 256} onChange={e => setParams({...params, width: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.height || 256} onChange={e => setParams({...params, height: parseInt(e.target.value)})} /></div>
+                </div>
+                <div className="control-group">
+                  <label>Interpolation</label>
+                  <select value={params.interpolation || 'bilinear'} onChange={e => setParams({...params, interpolation: e.target.value})}>
+                    <option value="bilinear">Bilinear</option>
+                    <option value="nearest">Nearest Neighbor</option>
+                  </select>
+                </div>
+              </>
             )}
             {operation === 'translate' && (
               <>
@@ -305,6 +396,7 @@ function App() {
                 setOperation(e.target.value);
                 setParams({ ksize: 5 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="gaussian_blur">Gaussian Blur</option>
                 <option value="median_filter">Median Filter (Noise Removal)</option>
               </select>
@@ -328,6 +420,7 @@ function App() {
                 if (e.target.value === 'log') setParams({ ksize: 5 });
                 if (e.target.value === 'morphology') setParams({ type: 'erosion', ksize: 5, iterations: 1 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="threshold">Binary Threshold</option>
                 <option value="canny">Canny Edge</option>
                 <option value="sobel">Sobel</option>
@@ -394,6 +487,7 @@ function App() {
                 if (e.target.value === 'seg_edge') setParams({ t1: 100, t2: 200 });
                 if (e.target.value === 'seg_region') setParams({ k: 3 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="seg_threshold">Threshold-based (Otsu)</option>
                 <option value="seg_edge">Edge-based (Canny Contours)</option>
                 <option value="seg_region">Region-based (K-Means)</option>
@@ -430,6 +524,7 @@ function App() {
                 if (e.target.value === 'channel') setParams({ channel: 'r' });
                 if (e.target.value === 'hsv_adjust') setParams({ hue: 0, saturation: 1.0, value: 1.0 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="grayscale">Grayscale</option>
                 <option value="channel">Split Channel</option>
                 <option value="hsv_adjust">HSV Adjustment</option>
@@ -473,6 +568,7 @@ function App() {
                 if (e.target.value === 'compress') setParams({ quality: 50 });
                 if (e.target.value === 'quantization') setParams({ k: 16 });
               }}>
+                <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="compress">JPEG Quality Simulator</option>
                 <option value="quantization">Color Quantization (K-Means)</option>
               </select>
@@ -625,6 +721,7 @@ function App() {
                 setActiveCategory(cat.id);
                 setOperation('');
                 setParams({});
+                setUiAngle(0);
                 if (cat.id === 'ml' && originalImage && !mlResult) {
                     recognizeImage(originalImage.file);
                 }
@@ -657,9 +754,9 @@ function App() {
                 <button className="btn btn-secondary" onClick={handleApply}>
                   <Save size={16} /> Save
                 </button>
-                <a href={currentImage.url} download={operation === 'compress' ? 'processed_image.jpg' : 'processed_image.png'} className="btn btn-primary" style={{textDecoration: 'none'}}>
+                <button className="btn btn-primary" onClick={() => setShowExportModal(true)}>
                   <Download size={16} /> Export
-                </a>
+                </button>
               </>
             )}
           </div>
@@ -669,8 +766,11 @@ function App() {
           </button>
         </header>
 
-        {/* Workspace */}
-        <div className="workspace">
+        <div className="workspace" 
+             onMouseMove={handleRotateMove} 
+             onMouseUp={handleRotateEnd} 
+             onTouchMove={handleRotateMove} 
+             onTouchEnd={handleRotateEnd}>
           <div className="image-area">
             {activeCategory === 'histogram' && histogramData ? (
                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto', padding: '20px' }}>
@@ -707,7 +807,26 @@ function App() {
                 <div className="image-panel">
                   <div className="panel-header">Original</div>
                   <div className="image-container">
-                    {originalImage ? <img src={originalImage.url} alt="Original" /> : <div className="empty-state"><ImageIcon size={48} />No Image</div>}
+                    {originalImage ? (
+                      activeCategory === 'transformation' && operation === 'crop' ? (
+                        <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}>
+                          <img src={originalImage.url} alt="Original" ref={imgRef} />
+                        </ReactCrop>
+                      ) : (
+                        <img 
+                          src={originalImage.url} 
+                          alt="Original" 
+                          ref={imgRef}
+                          style={{ 
+                            transform: activeCategory === 'transformation' && operation === 'rotate' ? `rotate(${uiAngle}deg)` : 'none',
+                            cursor: activeCategory === 'transformation' && operation === 'rotate' ? 'grab' : 'default',
+                            transition: isRotating ? 'none' : 'transform 0.2s ease-out'
+                          }} 
+                          onMouseDown={handleRotateStart}
+                          onTouchStart={handleRotateStart}
+                        />
+                      )
+                    ) : <div className="empty-state"><ImageIcon size={48} />No Image</div>}
                   </div>
                 </div>
                 <div className="image-panel">
@@ -753,6 +872,39 @@ function App() {
           <div className="upload-overlay drag-active" onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
             <Upload size={64} />
             <h2 style={{marginTop: '20px'}}>Drop image here to upload</h2>
+          </div>
+        )}
+
+        {/* Export Modal */}
+        {showExportModal && currentImage && (
+          <div className="upload-overlay drag-active" style={{backgroundColor: 'rgba(0,0,0,0.8)'}}>
+            <div style={{background: 'var(--bg-secondary)', padding: '20px', borderRadius: '8px', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '15px'}} onClick={e => e.stopPropagation()}>
+              <h3 style={{margin: 0}}>Export Image</h3>
+              <div className="control-group">
+                <label>Filename</label>
+                <input type="text" value={exportFilename} onChange={e => setExportFilename(e.target.value)} style={{width: '100%', padding: '8px', background: 'var(--bg-primary)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '4px'}} />
+              </div>
+              <div className="control-group">
+                <label>Format</label>
+                <select value={exportFormat} onChange={e => setExportFormat(e.target.value)} style={{width: '100%', padding: '8px', background: 'var(--bg-primary)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '4px'}}>
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                  <option value="bmp">BMP</option>
+                </select>
+              </div>
+              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px'}}>
+                <button className="btn btn-secondary" onClick={() => setShowExportModal(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={() => {
+                   const link = document.createElement('a');
+                   link.href = currentImage.url;
+                   link.download = `${exportFilename}.${exportFormat}`;
+                   document.body.appendChild(link);
+                   link.click();
+                   document.body.removeChild(link);
+                   setShowExportModal(false);
+                }}>Download</button>
+              </div>
+            </div>
           </div>
         )}
       </main>
