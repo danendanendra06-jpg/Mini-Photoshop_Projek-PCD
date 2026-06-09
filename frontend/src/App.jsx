@@ -262,7 +262,7 @@ function App() {
                 if (e.target.value === 'brightness_contrast') setParams({ brightness: 0, contrast: 1.0 });
                 if (e.target.value === 'sharpen') setParams({ intensity: 1.0 });
                 if (e.target.value === 'blur') setParams({ ksize: 5 });
-                if (e.target.value === 'histogram_equalization') setParams({});
+                if (e.target.value === 'histogram_equalization') setParams({ intensity: 100 });
               }}>
                 <option value="" disabled>-- Pilih Operasi --</option>
                 <option value="brightness_contrast">Brightness & Contrast</option>
@@ -416,7 +416,8 @@ function App() {
                 setOperation(e.target.value);
                 if (e.target.value === 'threshold') setParams({ thresh: 127 });
                 if (e.target.value === 'canny') setParams({ t1: 100, t2: 200 });
-                if (e.target.value === 'sobel' || e.target.value === 'laplacian' || e.target.value === 'prewitt' || e.target.value === 'robert') setParams({});
+                if (e.target.value === 'sobel' || e.target.value === 'laplacian') setParams({ ksize: 3 });
+                if (e.target.value === 'prewitt' || e.target.value === 'robert') setParams({ intensity: 100 });
                 if (e.target.value === 'log') setParams({ ksize: 5 });
                 if (e.target.value === 'morphology') setParams({ type: 'erosion', ksize: 5, iterations: 1 });
               }}>
@@ -449,7 +450,19 @@ function App() {
                 </div>
               </>
             )}
-            {operation === 'log' && (
+            {(operation === 'sobel' || operation === 'laplacian') && (
+              <div className="control-group">
+                <label>Kernel Size <span className="value-badge">{params.ksize || 3}</span></label>
+                <input type="range" min="1" max="7" step="2" value={params.ksize || 3} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+              </div>
+            )}
+            {(operation === 'prewitt' || operation === 'robert') && (
+              <div className="control-group">
+                <label>Intensity (Blending) <span className="value-badge">{params.intensity || 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+              </div>
+            )}
+            {(operation === 'log') && (
                <div className="control-group">
                  <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
                  <input type="range" min="1" max="15" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
@@ -483,7 +496,7 @@ function App() {
               <label>Method</label>
               <select value={operation} onChange={e => {
                 setOperation(e.target.value);
-                if (e.target.value === 'seg_threshold') setParams({});
+                if (e.target.value === 'seg_threshold') setParams({ bias: 0 });
                 if (e.target.value === 'seg_edge') setParams({ t1: 100, t2: 200 });
                 if (e.target.value === 'seg_region') setParams({ k: 3 });
               }}>
@@ -493,6 +506,13 @@ function App() {
                 <option value="seg_region">Region-based (K-Means)</option>
               </select>
             </div>
+            {operation === 'seg_threshold' && (
+              <div className="control-group">
+                <label>Threshold Bias <span className="value-badge">{params.bias > 0 ? '+'+params.bias : params.bias || 0}</span></label>
+                <input type="range" min="-50" max="50" value={params.bias || 0} onChange={e => setParams({...params, bias: parseInt(e.target.value)})} />
+                <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Adjust automated Otsu threshold.</p>
+              </div>
+            )}
             {operation === 'seg_edge' && (
               <>
                 <div className="control-group">
@@ -520,7 +540,7 @@ function App() {
               <label>Mode</label>
               <select value={operation} onChange={e => {
                 setOperation(e.target.value);
-                if (e.target.value === 'grayscale') setParams({});
+                if (e.target.value === 'grayscale') setParams({ intensity: 100 });
                 if (e.target.value === 'channel') setParams({ channel: 'r' });
                 if (e.target.value === 'hsv_adjust') setParams({ hue: 0, saturation: 1.0, value: 1.0 });
               }}>
@@ -530,6 +550,12 @@ function App() {
                 <option value="hsv_adjust">HSV Adjustment</option>
               </select>
             </div>
+            {operation === 'grayscale' && (
+              <div className="control-group">
+                <label>Intensity <span className="value-badge">{params.intensity || 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+              </div>
+            )}
             {operation === 'channel' && (
               <div className="control-group">
                 <label>Channel</label>
@@ -672,8 +698,6 @@ function App() {
       default:
         return null;
     }
-  };
-
   const getChartData = (label, dataArrayOriginal, dataArrayProcessed, color) => {
     const datasets = [];
     if (dataArrayOriginal) {

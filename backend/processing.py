@@ -20,10 +20,16 @@ def apply_processing_memory(image_bytes, operation, params):
             result = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
         
         elif operation == "histogram_equalization":
+            intensity = int(params.get("intensity", 100))
             # Convert to YUV to equalize only the Y channel
             img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
             img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
-            result = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+            res = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+            if intensity < 100:
+                alpha = intensity / 100.0
+                result = cv2.addWeighted(res, alpha, img, 1.0 - alpha, 0)
+            else:
+                result = res
 
         elif operation == "sharpen":
             intensity = params.get("intensity", 1.0)
@@ -114,29 +120,42 @@ def apply_processing_memory(image_bytes, operation, params):
             result = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
             
         elif operation == "sobel":
+            ksize = int(params.get("ksize", 3))
+            ksize = max(1, ksize)
+            if ksize % 2 == 0: ksize += 1
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=ksize)
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=ksize)
             abs_grad_x = cv2.convertScaleAbs(sobelx)
             abs_grad_y = cv2.convertScaleAbs(sobely)
             edges = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
             result = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
 
         elif operation == "laplacian":
+            ksize = int(params.get("ksize", 3))
+            ksize = max(1, ksize)
+            if ksize % 2 == 0: ksize += 1
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+            laplacian = cv2.Laplacian(gray, cv2.CV_64F, ksize=ksize)
             abs_dst = cv2.convertScaleAbs(laplacian)
             result = cv2.cvtColor(abs_dst, cv2.COLOR_GRAY2BGR)
 
         elif operation == "prewitt":
+            intensity = int(params.get("intensity", 100))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             kernelx = np.array([[1,1,1],[0,0,0],[-1,-1,-1]])
             kernely = np.array([[-1,0,1],[-1,0,1],[-1,0,1]])
             img_prewittx = cv2.filter2D(gray, -1, kernelx)
             img_prewitty = cv2.filter2D(gray, -1, kernely)
-            result = cv2.cvtColor(cv2.convertScaleAbs(img_prewittx) + cv2.convertScaleAbs(img_prewitty), cv2.COLOR_GRAY2BGR)
+            res = cv2.cvtColor(cv2.convertScaleAbs(img_prewittx) + cv2.convertScaleAbs(img_prewitty), cv2.COLOR_GRAY2BGR)
+            if intensity < 100:
+                alpha = intensity / 100.0
+                result = cv2.addWeighted(res, alpha, img, 1.0 - alpha, 0)
+            else:
+                result = res
 
         elif operation == "robert":
+            intensity = int(params.get("intensity", 100))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             kernelx = np.array([[1, 0], [0, -1]], dtype=int)
             kernely = np.array([[0, 1], [-1, 0]], dtype=int)
@@ -145,7 +164,12 @@ def apply_processing_memory(image_bytes, operation, params):
             absX = cv2.convertScaleAbs(x)
             absY = cv2.convertScaleAbs(y)
             robert = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
-            result = cv2.cvtColor(robert, cv2.COLOR_GRAY2BGR)
+            res = cv2.cvtColor(robert, cv2.COLOR_GRAY2BGR)
+            if intensity < 100:
+                alpha = intensity / 100.0
+                result = cv2.addWeighted(res, alpha, img, 1.0 - alpha, 0)
+            else:
+                result = res
 
         elif operation == "log":
             ksize = int(params.get("ksize", 5))
@@ -174,8 +198,14 @@ def apply_processing_memory(image_bytes, operation, params):
 
         # 5. Color Processing
         elif operation == "grayscale":
+            intensity = int(params.get("intensity", 100))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            result = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+            res = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+            if intensity < 100:
+                alpha = intensity / 100.0
+                result = cv2.addWeighted(res, alpha, img, 1.0 - alpha, 0)
+            else:
+                result = res
 
         elif operation == "channel":
             channel = params.get("channel", "r") # r, g, b
@@ -222,8 +252,11 @@ def apply_processing_memory(image_bytes, operation, params):
 
         # 7. Segmentation
         elif operation == "seg_threshold":
+            bias = int(params.get("bias", 0))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            ret, _ = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            new_thresh = max(0, min(255, ret + bias))
+            _, thresh = cv2.threshold(gray, new_thresh, 255, cv2.THRESH_BINARY)
             result = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
         elif operation == "seg_edge":
