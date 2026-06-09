@@ -296,6 +296,12 @@ function App() {
                  <input type="range" min="1" max="31" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
                </div>
             )}
+            {operation === 'histogram_equalization' && (
+              <div className="control-group">
+                <label>Intensity (Blending) <span className="value-badge">{params.intensity || 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+              </div>
+            )}
           </>
         );
       case 'transformation':
@@ -698,6 +704,8 @@ function App() {
       default:
         return null;
     }
+  };
+
   const getChartData = (label, dataArrayOriginal, dataArrayProcessed, color) => {
     const datasets = [];
     if (dataArrayOriginal) {
