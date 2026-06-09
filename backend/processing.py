@@ -34,6 +34,7 @@ def apply_processing_memory(image_bytes, operation, params):
 
         elif operation == "blur":
             ksize = int(params.get("ksize", 5))
+            ksize = max(1, ksize)
             if ksize % 2 == 0: ksize += 1
             result = cv2.blur(img, (ksize, ksize))
 
@@ -51,15 +52,21 @@ def apply_processing_memory(image_bytes, operation, params):
             result = cv2.flip(img, flipCode)
             
         elif operation == "crop":
-            x = int(params.get("x", 0))
-            y = int(params.get("y", 0))
-            w = int(params.get("w", img.shape[1]))
-            h = int(params.get("h", img.shape[0]))
+            # Use 'or 0' to handle None values when user clears the input (sending null from JS)
+            x = int(params.get("x") if params.get("x") is not None else 0)
+            y = int(params.get("y") if params.get("y") is not None else 0)
+            w = int(params.get("w") if params.get("w") is not None else img.shape[1])
+            h = int(params.get("h") if params.get("h") is not None else img.shape[0])
+            
+            x = max(0, min(x, img.shape[1]-1))
+            y = max(0, min(y, img.shape[0]-1))
+            w = max(1, min(w, img.shape[1]-x))
+            h = max(1, min(h, img.shape[0]-y))
             result = img[y:y+h, x:x+w]
 
         elif operation == "resize":
-            width = int(params.get("width", img.shape[1]))
-            height = int(params.get("height", img.shape[0]))
+            width = int(params.get("width") if params.get("width") is not None else img.shape[1])
+            height = int(params.get("height") if params.get("height") is not None else img.shape[0])
             interp_str = params.get("interpolation", "bilinear")
             
             interp_flag = cv2.INTER_LINEAR
@@ -73,8 +80,8 @@ def apply_processing_memory(image_bytes, operation, params):
             result = cv2.resize(img, (width, height), interpolation=interp_flag)
 
         elif operation == "translate":
-            tx = float(params.get("tx", 0))
-            ty = float(params.get("ty", 0))
+            tx = float(params.get("tx") if params.get("tx") is not None else 0)
+            ty = float(params.get("ty") if params.get("ty") is not None else 0)
             M = np.float32([[1, 0, tx], [0, 1, ty]])
             (h, w) = img.shape[:2]
             result = cv2.warpAffine(img, M, (w, h))
@@ -82,11 +89,13 @@ def apply_processing_memory(image_bytes, operation, params):
         # 3. Restoration
         elif operation == "gaussian_blur":
             ksize = int(params.get("ksize", 5))
+            ksize = max(1, ksize)
             if ksize % 2 == 0: ksize += 1
             result = cv2.GaussianBlur(img, (ksize, ksize), 0)
 
         elif operation == "median_filter":
             ksize = int(params.get("ksize", 5))
+            ksize = max(1, ksize)
             if ksize % 2 == 0: ksize += 1
             result = cv2.medianBlur(img, ksize)
 
@@ -140,6 +149,7 @@ def apply_processing_memory(image_bytes, operation, params):
 
         elif operation == "log":
             ksize = int(params.get("ksize", 5))
+            ksize = max(1, ksize)
             if ksize % 2 == 0: ksize += 1
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             blur = cv2.GaussianBlur(gray, (ksize, ksize), 0)
@@ -150,7 +160,9 @@ def apply_processing_memory(image_bytes, operation, params):
         elif operation == "morphology":
             mtype = params.get("type", "erosion")
             ksize = int(params.get("ksize", 5))
+            ksize = max(1, ksize)
             iterations = int(params.get("iterations", 1))
+            iterations = max(1, iterations)
             kernel = np.ones((ksize, ksize), np.uint8)
             
             if mtype == "erosion":
@@ -199,6 +211,7 @@ def apply_processing_memory(image_bytes, operation, params):
             
         elif operation == "quantization":
             k = int(params.get("k", 16))
+            k = max(1, k)
             pixel_vals = img.reshape((-1, 3))
             pixel_vals = np.float32(pixel_vals)
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
@@ -224,6 +237,7 @@ def apply_processing_memory(image_bytes, operation, params):
         elif operation == "seg_region":
             # K-Means clustering for segmentation
             k = int(params.get("k", 3))
+            k = max(1, k)
             pixel_vals = img.reshape((-1, 3))
             pixel_vals = np.float32(pixel_vals)
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.85)
