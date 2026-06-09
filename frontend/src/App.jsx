@@ -275,31 +275,31 @@ function App() {
             {operation === 'brightness_contrast' && (
               <>
                 <div className="control-group">
-                  <label>Brightness <span className="value-badge">{params.brightness || 0}</span></label>
-                  <input type="range" min="-100" max="100" value={params.brightness || 0} onChange={e => setParams({...params, brightness: parseInt(e.target.value)})} />
+                  <label>Brightness <span className="value-badge">{params.brightness ?? 0}</span></label>
+                  <input type="range" min="-100" max="100" value={params.brightness ?? 0} onChange={e => setParams({...params, brightness: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Contrast <span className="value-badge">{params.contrast || 1.0}</span></label>
-                  <input type="range" min="0.1" max="3.0" step="0.1" value={params.contrast || 1.0} onChange={e => setParams({...params, contrast: parseFloat(e.target.value)})} />
+                  <label>Contrast <span className="value-badge">{params.contrast ?? 1.0}</span></label>
+                  <input type="range" min="0.1" max="3.0" step="0.1" value={params.contrast ?? 1.0} onChange={e => setParams({...params, contrast: parseFloat(e.target.value)})} />
                 </div>
               </>
             )}
             {operation === 'sharpen' && (
                <div className="control-group">
-                 <label>Intensity <span className="value-badge">{params.intensity || 1.0}</span></label>
-                 <input type="range" min="0.1" max="5.0" step="0.1" value={params.intensity || 1.0} onChange={e => setParams({...params, intensity: parseFloat(e.target.value)})} />
+                 <label>Intensity <span className="value-badge">{params.intensity ?? 1.0}</span></label>
+                 <input type="range" min="0.1" max="5.0" step="0.1" value={params.intensity ?? 1.0} onChange={e => setParams({...params, intensity: parseFloat(e.target.value)})} />
                </div>
             )}
             {operation === 'blur' && (
                <div className="control-group">
-                 <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
-                 <input type="range" min="1" max="31" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+                 <label>Kernel Size <span className="value-badge">{params.ksize ?? 5}</span></label>
+                 <input type="range" min="1" max="31" step="2" value={params.ksize ?? 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
                </div>
             )}
             {operation === 'histogram_equalization' && (
               <div className="control-group">
-                <label>Intensity (Blending) <span className="value-badge">{params.intensity || 100}%</span></label>
-                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+                <label>Intensity (Blending) <span className="value-badge">{params.intensity ?? 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity ?? 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
               </div>
             )}
           </>
@@ -345,7 +345,7 @@ function App() {
             {operation === 'flip' && (
               <div className="control-group">
                 <label>Mode</label>
-                <select value={params.mode || 'horizontal'} onChange={e => setParams({...params, mode: e.target.value})}>
+                <select value={params.mode ?? 'horizontal'} onChange={e => setParams({...params, mode: e.target.value})}>
                   <option value="horizontal">Horizontal</option>
                   <option value="vertical">Vertical</option>
                 </select>
@@ -355,24 +355,24 @@ function App() {
               <>
                 <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Drag on the Original image to crop, or fine-tune values below.</p>
                 <div className="control-group" style={{display:'flex', gap:'10px'}}>
-                  <div style={{flex:1}}><label>X</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.x || 0} onChange={e => setParams({...params, x: parseInt(e.target.value)})} /></div>
-                  <div style={{flex:1}}><label>Y</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.y || 0} onChange={e => setParams({...params, y: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>X</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.x ?? 0} onChange={e => setParams({...params, x: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Y</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.y ?? 0} onChange={e => setParams({...params, y: parseInt(e.target.value)})} /></div>
                 </div>
                 <div className="control-group" style={{display:'flex', gap:'10px'}}>
-                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.w || 100} onChange={e => setParams({...params, w: parseInt(e.target.value)})} /></div>
-                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.h || 100} onChange={e => setParams({...params, h: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.w ?? 100} onChange={e => setParams({...params, w: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.h ?? 100} onChange={e => setParams({...params, h: parseInt(e.target.value)})} /></div>
                 </div>
               </>
             )}
             {operation === 'resize' && (
               <>
                 <div className="control-group" style={{display:'flex', gap:'10px'}}>
-                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.width || 256} onChange={e => setParams({...params, width: parseInt(e.target.value)})} /></div>
-                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.height || 256} onChange={e => setParams({...params, height: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Width</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.width ?? 256} onChange={e => setParams({...params, width: parseInt(e.target.value)})} /></div>
+                  <div style={{flex:1}}><label>Height</label><input type="number" style={{width:'100%', background:'var(--bg-primary)', color:'var(--text-color)', border:'1px solid var(--border-color)', padding:'5px'}} value={params.height ?? 256} onChange={e => setParams({...params, height: parseInt(e.target.value)})} /></div>
                 </div>
                 <div className="control-group">
                   <label>Interpolation</label>
-                  <select value={params.interpolation || 'bilinear'} onChange={e => setParams({...params, interpolation: e.target.value})}>
+                  <select value={params.interpolation ?? 'bilinear'} onChange={e => setParams({...params, interpolation: e.target.value})}>
                     <option value="bilinear">Bilinear</option>
                     <option value="nearest">Nearest Neighbor</option>
                   </select>
@@ -382,12 +382,12 @@ function App() {
             {operation === 'translate' && (
               <>
                 <div className="control-group">
-                  <label>Translate X <span className="value-badge">{params.tx || 0}</span></label>
-                  <input type="range" min="-500" max="500" value={params.tx || 0} onChange={e => setParams({...params, tx: parseInt(e.target.value)})} />
+                  <label>Translate X <span className="value-badge">{params.tx ?? 0}</span></label>
+                  <input type="range" min="-500" max="500" value={params.tx ?? 0} onChange={e => setParams({...params, tx: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Translate Y <span className="value-badge">{params.ty || 0}</span></label>
-                  <input type="range" min="-500" max="500" value={params.ty || 0} onChange={e => setParams({...params, ty: parseInt(e.target.value)})} />
+                  <label>Translate Y <span className="value-badge">{params.ty ?? 0}</span></label>
+                  <input type="range" min="-500" max="500" value={params.ty ?? 0} onChange={e => setParams({...params, ty: parseInt(e.target.value)})} />
                 </div>
               </>
             )}
@@ -408,8 +408,8 @@ function App() {
               </select>
             </div>
             <div className="control-group">
-              <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
-              <input type="range" min="1" max="31" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+              <label>Kernel Size <span className="value-badge">{params.ksize ?? 5}</span></label>
+              <input type="range" min="1" max="31" step="2" value={params.ksize ?? 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
             </div>
           </>
          );
@@ -440,56 +440,56 @@ function App() {
             </div>
             {operation === 'threshold' && (
               <div className="control-group">
-                <label>Threshold <span className="value-badge">{params.thresh || 127}</span></label>
-                <input type="range" min="0" max="255" value={params.thresh || 127} onChange={e => setParams({...params, thresh: parseInt(e.target.value)})} />
+                <label>Threshold <span className="value-badge">{params.thresh ?? 127}</span></label>
+                <input type="range" min="0" max="255" value={params.thresh ?? 127} onChange={e => setParams({...params, thresh: parseInt(e.target.value)})} />
               </div>
             )}
             {operation === 'canny' && (
               <>
                 <div className="control-group">
-                  <label>Min Threshold <span className="value-badge">{params.t1 || 100}</span></label>
-                  <input type="range" min="0" max="255" value={params.t1 || 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
+                  <label>Min Threshold <span className="value-badge">{params.t1 ?? 100}</span></label>
+                  <input type="range" min="0" max="255" value={params.t1 ?? 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Max Threshold <span className="value-badge">{params.t2 || 200}</span></label>
-                  <input type="range" min="0" max="255" value={params.t2 || 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
+                  <label>Max Threshold <span className="value-badge">{params.t2 ?? 200}</span></label>
+                  <input type="range" min="0" max="255" value={params.t2 ?? 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
                 </div>
               </>
             )}
             {(operation === 'sobel' || operation === 'laplacian') && (
               <div className="control-group">
-                <label>Kernel Size <span className="value-badge">{params.ksize || 3}</span></label>
-                <input type="range" min="1" max="7" step="2" value={params.ksize || 3} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+                <label>Kernel Size <span className="value-badge">{params.ksize ?? 3}</span></label>
+                <input type="range" min="1" max="7" step="2" value={params.ksize ?? 3} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
               </div>
             )}
             {(operation === 'prewitt' || operation === 'robert') && (
               <div className="control-group">
-                <label>Intensity (Blending) <span className="value-badge">{params.intensity || 100}%</span></label>
-                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+                <label>Intensity (Blending) <span className="value-badge">{params.intensity ?? 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity ?? 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
               </div>
             )}
             {(operation === 'log') && (
                <div className="control-group">
-                 <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
-                 <input type="range" min="1" max="15" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+                 <label>Kernel Size <span className="value-badge">{params.ksize ?? 5}</span></label>
+                 <input type="range" min="1" max="15" step="2" value={params.ksize ?? 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
                </div>
             )}
             {operation === 'morphology' && (
               <>
                 <div className="control-group">
                   <label>Type</label>
-                  <select value={params.type || 'erosion'} onChange={e => setParams({...params, type: e.target.value})}>
+                  <select value={params.type ?? 'erosion'} onChange={e => setParams({...params, type: e.target.value})}>
                     <option value="erosion">Erosion</option>
                     <option value="dilation">Dilation</option>
                   </select>
                 </div>
                 <div className="control-group">
-                  <label>Kernel Size <span className="value-badge">{params.ksize || 5}</span></label>
-                  <input type="range" min="1" max="21" step="2" value={params.ksize || 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
+                  <label>Kernel Size <span className="value-badge">{params.ksize ?? 5}</span></label>
+                  <input type="range" min="1" max="21" step="2" value={params.ksize ?? 5} onChange={e => setParams({...params, ksize: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Iterations <span className="value-badge">{params.iterations || 1}</span></label>
-                  <input type="range" min="1" max="10" value={params.iterations || 1} onChange={e => setParams({...params, iterations: parseInt(e.target.value)})} />
+                  <label>Iterations <span className="value-badge">{params.iterations ?? 1}</span></label>
+                  <input type="range" min="1" max="10" value={params.iterations ?? 1} onChange={e => setParams({...params, iterations: parseInt(e.target.value)})} />
                 </div>
               </>
             )}
@@ -514,27 +514,27 @@ function App() {
             </div>
             {operation === 'seg_threshold' && (
               <div className="control-group">
-                <label>Threshold Bias <span className="value-badge">{params.bias > 0 ? '+'+params.bias : params.bias || 0}</span></label>
-                <input type="range" min="-50" max="50" value={params.bias || 0} onChange={e => setParams({...params, bias: parseInt(e.target.value)})} />
+                <label>Threshold Bias <span className="value-badge">{params.bias > 0 ? '+'+params.bias : params.bias ?? 0}</span></label>
+                <input type="range" min="-50" max="50" value={params.bias ?? 0} onChange={e => setParams({...params, bias: parseInt(e.target.value)})} />
                 <p style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Adjust automated Otsu threshold.</p>
               </div>
             )}
             {operation === 'seg_edge' && (
               <>
                 <div className="control-group">
-                  <label>Min Threshold <span className="value-badge">{params.t1 || 100}</span></label>
-                  <input type="range" min="0" max="255" value={params.t1 || 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
+                  <label>Min Threshold <span className="value-badge">{params.t1 ?? 100}</span></label>
+                  <input type="range" min="0" max="255" value={params.t1 ?? 100} onChange={e => setParams({...params, t1: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Max Threshold <span className="value-badge">{params.t2 || 200}</span></label>
-                  <input type="range" min="0" max="255" value={params.t2 || 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
+                  <label>Max Threshold <span className="value-badge">{params.t2 ?? 200}</span></label>
+                  <input type="range" min="0" max="255" value={params.t2 ?? 200} onChange={e => setParams({...params, t2: parseInt(e.target.value)})} />
                 </div>
               </>
             )}
             {operation === 'seg_region' && (
               <div className="control-group">
-                <label>Regions (K) <span className="value-badge">{params.k || 3}</span></label>
-                <input type="range" min="2" max="10" value={params.k || 3} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
+                <label>Regions (K) <span className="value-badge">{params.k ?? 3}</span></label>
+                <input type="range" min="2" max="10" value={params.k ?? 3} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
               </div>
             )}
           </>
@@ -558,14 +558,14 @@ function App() {
             </div>
             {operation === 'grayscale' && (
               <div className="control-group">
-                <label>Intensity <span className="value-badge">{params.intensity || 100}%</span></label>
-                <input type="range" min="0" max="100" value={params.intensity || 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
+                <label>Intensity <span className="value-badge">{params.intensity ?? 100}%</span></label>
+                <input type="range" min="0" max="100" value={params.intensity ?? 100} onChange={e => setParams({...params, intensity: parseInt(e.target.value)})} />
               </div>
             )}
             {operation === 'channel' && (
               <div className="control-group">
                 <label>Channel</label>
-                <select value={params.channel || 'r'} onChange={e => setParams({...params, channel: e.target.value})}>
+                <select value={params.channel ?? 'r'} onChange={e => setParams({...params, channel: e.target.value})}>
                   <option value="r">Red</option>
                   <option value="g">Green</option>
                   <option value="b">Blue</option>
@@ -575,16 +575,16 @@ function App() {
             {operation === 'hsv_adjust' && (
               <>
                 <div className="control-group">
-                  <label>Hue Shift <span className="value-badge">{params.hue || 0}</span></label>
-                  <input type="range" min="-180" max="180" value={params.hue || 0} onChange={e => setParams({...params, hue: parseInt(e.target.value)})} />
+                  <label>Hue Shift <span className="value-badge">{params.hue ?? 0}</span></label>
+                  <input type="range" min="-180" max="180" value={params.hue ?? 0} onChange={e => setParams({...params, hue: parseInt(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Saturation <span className="value-badge">{params.saturation || 1.0}</span></label>
-                  <input type="range" min="0" max="3" step="0.1" value={params.saturation || 1.0} onChange={e => setParams({...params, saturation: parseFloat(e.target.value)})} />
+                  <label>Saturation <span className="value-badge">{params.saturation ?? 1.0}</span></label>
+                  <input type="range" min="0" max="3" step="0.1" value={params.saturation ?? 1.0} onChange={e => setParams({...params, saturation: parseFloat(e.target.value)})} />
                 </div>
                 <div className="control-group">
-                  <label>Value (Brightness) <span className="value-badge">{params.value || 1.0}</span></label>
-                  <input type="range" min="0" max="3" step="0.1" value={params.value || 1.0} onChange={e => setParams({...params, value: parseFloat(e.target.value)})} />
+                  <label>Value (Brightness) <span className="value-badge">{params.value ?? 1.0}</span></label>
+                  <input type="range" min="0" max="3" step="0.1" value={params.value ?? 1.0} onChange={e => setParams({...params, value: parseFloat(e.target.value)})} />
                 </div>
               </>
             )}
@@ -608,14 +608,14 @@ function App() {
             
             {operation === 'compress' && (
               <div className="control-group">
-                <label>Quality <span className="value-badge">{params.quality || 50}%</span></label>
-                <input type="range" min="1" max="100" value={params.quality || 50} onChange={e => setParams({...params, quality: parseInt(e.target.value)})} />
+                <label>Quality <span className="value-badge">{params.quality ?? 50}%</span></label>
+                <input type="range" min="1" max="100" value={params.quality ?? 50} onChange={e => setParams({...params, quality: parseInt(e.target.value)})} />
               </div>
             )}
             {operation === 'quantization' && (
               <div className="control-group">
-                <label>Number of Colors (K) <span className="value-badge">{params.k || 16}</span></label>
-                <input type="range" min="2" max="64" value={params.k || 16} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
+                <label>Number of Colors (K) <span className="value-badge">{params.k ?? 16}</span></label>
+                <input type="range" min="2" max="64" value={params.k ?? 16} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
                 <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px'}}>Quantizes the image to K colors, effectively compressing the visual data.</p>
               </div>
             )}
