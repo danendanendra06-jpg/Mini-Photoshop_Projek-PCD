@@ -59,6 +59,7 @@ function App() {
   const [histogramData, setHistogramData] = useState(null);
   const [originalHistogramData, setOriginalHistogramData] = useState(null);
   const [mlResult, setMlResult] = useState(null);
+  const [compressionStats, setCompressionStats] = useState(null);
   
   // Interactive Rotate States
   const [uiAngle, setUiAngle] = useState(0);
@@ -85,6 +86,13 @@ function App() {
       const response = await axios.post(`${API_URL}/process`, formData, {
         responseType: 'blob' // Expecting binary image data
       });
+      
+      const statsHeader = response.headers['x-compression-stats'];
+      if (statsHeader) {
+        setCompressionStats(JSON.parse(statsHeader));
+      } else {
+        setCompressionStats(null);
+      }
       
       const url = URL.createObjectURL(response.data);
       setCurrentImage({
@@ -597,12 +605,22 @@ function App() {
               <label>Compression Method</label>
               <select value={operation} onChange={e => {
                 setOperation(e.target.value);
+                setCompressionStats(null);
                 if (e.target.value === 'compress') setParams({ quality: 50 });
                 if (e.target.value === 'quantization') setParams({ k: 16 });
+                if (['rle', 'huffman', 'lzw', 'arithmetic'].includes(e.target.value)) setParams({});
               }}>
                 <option value="" disabled>-- Pilih Operasi --</option>
-                <option value="compress">JPEG Quality Simulator</option>
-                <option value="quantization">Color Quantization (K-Means)</option>
+                <optgroup label="Lossy (Visual)">
+                  <option value="compress">JPEG Quality Simulator</option>
+                  <option value="quantization">Color Quantization (K-Means)</option>
+                </optgroup>
+                <optgroup label="Lossless (Stats Only)">
+                  <option value="rle">Run-Length Encoding (RLE)</option>
+                  <option value="huffman">Huffman Coding</option>
+                  <option value="lzw">LZW Compression</option>
+                  <option value="arithmetic">Arithmetic Coding</option>
+                </optgroup>
               </select>
             </div>
             
@@ -617,6 +635,38 @@ function App() {
                 <label>Number of Colors (K) <span className="value-badge">{params.k ?? 16}</span></label>
                 <input type="range" min="2" max="64" value={params.k ?? 16} onChange={e => setParams({...params, k: parseInt(e.target.value)})} />
                 <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px'}}>Quantizes the image to K colors, effectively compressing the visual data.</p>
+              </div>
+            )}
+
+            {compressionStats && (
+              <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'var(--bg-card-hover)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: 'var(--primary-color)' }}>Compression Statistics</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Method:</span>
+                    <strong>{compressionStats.method}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Original Size:</span>
+                    <span>{(compressionStats.original_bytes / 1024).toFixed(2)} KB</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Compressed Size:</span>
+                    <span style={{ color: compressionStats.ratio > 1 ? '#4ade80' : '#f87171' }}>
+                      {(compressionStats.compressed_bytes / 1024).toFixed(2)} KB
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Compression Ratio:</span>
+                    <strong style={{ color: compressionStats.ratio > 1 ? '#4ade80' : '#f87171' }}>
+                      {compressionStats.ratio}x
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Time Taken:</span>
+                    <span>{compressionStats.time_ms} ms</span>
+                  </div>
+                </div>
               </div>
             )}
           </>

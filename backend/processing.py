@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import os
+import time
+import math
+from collections import Counter
 
 def apply_processing_memory(image_bytes, operation, params):
     try:
@@ -249,6 +252,62 @@ def apply_processing_memory(image_bytes, operation, params):
             centers = np.uint8(centers)
             res = centers[labels.flatten()]
             result = res.reshape((img.shape))
+            
+        elif operation in ["rle", "huffman", "lzw", "arithmetic"]:
+            start_time = time.time()
+            flat_img = img.flatten()
+            orig_size = len(flat_img)
+            comp_size = orig_size
+            
+            if operation == "rle":
+                diffs = np.diff(flat_img)
+                runs = np.count_nonzero(diffs) + 1
+                comp_size = runs * 2 # 2 bytes per run
+                
+            elif operation == "huffman":
+                freq = Counter(flat_img)
+                entropy = sum(-(f/orig_size) * math.log2(f/orig_size) for f in freq.values() if f > 0)
+                comp_size = int((entropy * orig_size) / 8) + 256 # plus small tree overhead
+                
+            elif operation == "lzw":
+                sample_size = min(100000, orig_size)
+                sample = flat_img[:sample_size].tobytes()
+                dict_size = 256
+                dictionary = {bytes([i]): i for i in range(dict_size)}
+                w = bytes()
+                compressed_len = 0
+                for c in sample:
+                    wc = w + bytes([c])
+                    if wc in dictionary:
+                        w = wc
+                    else:
+                        compressed_len += 1
+                        if dict_size < 4096:
+                            dictionary[wc] = dict_size
+                            dict_size += 1
+                        w = bytes([c])
+                if w:
+                    compressed_len += 1
+                comp_size = int((compressed_len * 1.5) * (orig_size / sample_size))
+                
+            elif operation == "arithmetic":
+                freq = Counter(flat_img)
+                entropy = sum(-(f/orig_size) * math.log2(f/orig_size) for f in freq.values() if f > 0)
+                comp_size = int((entropy * orig_size) / 8)
+
+            end_time = time.time()
+            stats = {
+                "method": operation.upper(),
+                "original_bytes": int(orig_size),
+                "compressed_bytes": int(comp_size),
+                "ratio": round(orig_size / comp_size, 2) if comp_size > 0 else 0,
+                "time_ms": int((end_time - start_time) * 1000)
+            }
+            
+            success, encoded_result = cv2.imencode('.png', img)
+            if success:
+                return True, (encoded_result.tobytes(), stats)
+            return False, "Failed to encode image"
 
         # 7. Segmentation
         elif operation == "seg_threshold":

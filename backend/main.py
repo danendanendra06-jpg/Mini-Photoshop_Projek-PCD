@@ -13,6 +13,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Compression-Stats"]
 )
 
 @app.post("/process")
@@ -29,8 +30,18 @@ async def process_image(file: UploadFile = File(...), operation: str = Form(...)
     if not success:
         raise HTTPException(status_code=500, detail=f"Processing failed: {result_or_error}")
         
+    if isinstance(result_or_error, tuple):
+        image_data, stats = result_or_error
+    else:
+        image_data = result_or_error
+        stats = None
+        
     media_type = "image/jpeg" if operation == "compress" else "image/png"
-    return Response(content=result_or_error, media_type=media_type)
+    headers = {}
+    if stats:
+        headers["X-Compression-Stats"] = json.dumps(stats)
+        
+    return Response(content=image_data, media_type=media_type, headers=headers)
 
 @app.post("/histogram")
 async def get_histogram(file: UploadFile = File(...)):
